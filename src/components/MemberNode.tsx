@@ -1,8 +1,43 @@
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { User } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export function MemberNode({ data, selected }: NodeProps) {
   const { label, role, imageUrl } = data as any;
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!imageUrl) {
+      setImgSrc(null);
+      return;
+    }
+
+    let isMounted = true;
+    
+    // We fetch the image and convert it to base64 locally.
+    // This prevents `html-to-image` from crashing due to CORS issues during export!
+    fetch(imageUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error('Network response not ok');
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!isMounted) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (isMounted) setImgSrc(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      })
+      .catch((err) => {
+        console.warn('Failed to load image for', label, err);
+        if (isMounted) setImgSrc(null); // Fallback to User icon
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [imageUrl, label]);
   
   return (
     <div 
@@ -17,8 +52,8 @@ export function MemberNode({ data, selected }: NodeProps) {
       />
       
       <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
-        {imageUrl ? (
-          <img src={imageUrl} alt={label} className="w-full h-full object-cover" />
+        {imgSrc ? (
+          <img src={imgSrc} alt={label} className="w-full h-full object-cover" />
         ) : (
           <User className="text-gray-400 w-6 h-6" />
         )}
