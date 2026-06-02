@@ -1,0 +1,6 @@
+{
+  "name": "OrgChart Builder",
+  "description": "Interactive organizational chart builder with customizable members, roles, profiles, and export capabilities to PDF/Image.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
