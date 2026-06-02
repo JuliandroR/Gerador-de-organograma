@@ -12,6 +12,11 @@ export function MemberNode({ data, selected }: NodeProps) {
       return;
     }
 
+    if (imageUrl.startsWith('data:')) {
+      setImgSrc(imageUrl);
+      return;
+    }
+
     let isMounted = true;
     
     // We fetch the image and convert it to base64 locally.

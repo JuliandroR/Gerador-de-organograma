@@ -32,19 +32,19 @@ const initialNodes: Node[] = [
     id: 'ceo',
     type: 'member',
     position: { x: 0, y: 0 },
-    data: { label: 'Ana Silva', role: 'CEO', imageUrl: 'https://i.pravatar.cc/150?u=sarah' },
+    data: { label: 'Ana Silva', role: 'CEO', imageUrl: '' },
   },
   {
     id: 'cto',
     type: 'member',
     position: { x: -150, y: 150 },
-    data: { label: 'João Souza', role: 'Diretor de Tecnologia', imageUrl: 'https://i.pravatar.cc/150?u=john' },
+    data: { label: 'João Souza', role: 'Diretor de Tecnologia', imageUrl: '' },
   },
   {
     id: 'cmo',
     type: 'member',
     position: { x: 150, y: 150 },
-    data: { label: 'Amanda Costa', role: 'Diretora de Marketing', imageUrl: 'https://i.pravatar.cc/150?u=amanda' },
+    data: { label: 'Amanda Costa', role: 'Diretora de Marketing', imageUrl: '' },
   },
 ];
 
@@ -67,8 +67,22 @@ function Flow() {
   }, [nodes]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2, stroke: '#1d3c55' } }, eds)),
-    [setEdges],
+    (params: Connection) => {
+      // Validar relações circulares (um membro assumir cargo superior ao seu chefe atual)
+      const hasCycle = (targetId: string, sourceId: string, currentEdges: Edge[]) => {
+        if (targetId === sourceId) return true;
+        const children = currentEdges.filter(e => e.source === targetId).map(e => e.target);
+        return children.some(child => hasCycle(child, sourceId, currentEdges));
+      };
+
+      if (hasCycle(params.target, params.source, edges)) {
+        alert("Validação falhou: Não é permitida a criação de relações circulares na hierarquia.");
+        return;
+      }
+
+      setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2, stroke: '#1d3c55' } }, eds));
+    },
+    [edges, setEdges],
   );
 
   const onLayout = useCallback(
@@ -126,11 +140,26 @@ function Flow() {
     setNodes((nds) =>
       nds.map((n) => {
         if (n.id === selectedNode.id) {
-          n.data = { ...n.data, [field]: value };
+          // IMPORTANT: Return a new object so React Flow detects the change and triggers a live refresh
+          return { ...n, data: { ...n.data, [field]: value } };
         }
         return n;
       })
     );
+  };
+
+  const onNodeDragStop = (event: React.MouseEvent, node: Node) => {
+    // Validação para avisar caso membros fiquem visualmente sobrepostos
+    const isOverlapping = nodes.some(n => {
+      if (n.id === node.id) return false;
+      const xOverlap = Math.abs(n.position.x - node.position.x) < 250; 
+      const yOverlap = Math.abs(n.position.y - node.position.y) < 70;
+      return xOverlap && yOverlap;
+    });
+
+    if (isOverlapping) {
+      alert("Aviso: Há membros sobrepostos. Use a opção 'Organizar e Alinhar' para corrigir o layout.");
+    }
   };
 
   const deleteSelectedNode = () => {
@@ -252,19 +281,73 @@ function Flow() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">URL da Foto de Perfil <span className="text-gray-400 font-normal">(Opcional)</span></label>
-                  <input
-                    type="url"
-                    value={selectedNode.data.imageUrl as string || ''}
-                    onChange={(e) => updateSelectedNode('imageUrl', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#34cdd7] focus:border-[#34cdd7] transition-shadow"
-                    placeholder="https://..."
-                  />
-                  {selectedNode.data.imageUrl && (
-                    <div className="mt-3 flex justify-center">
-                      <img src={selectedNode.data.imageUrl as string} alt="Preview" className="w-16 h-16 rounded-full border border-gray-200 object-cover shadow-sm bg-gray-50" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Foto de Perfil <span className="text-gray-400 font-normal">(Opcional)</span></label>
+                  
+                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-[#34cdd7] transition-colors relative group">
+                    <div className="space-y-1 text-center">
+                      {selectedNode.data.imageUrl ? (
+                        <div className="flex flex-col items-center gap-3">
+                           <img 
+                              src={selectedNode.data.imageUrl as string} 
+                              alt="Preview" 
+                              className="w-16 h-16 rounded-full border border-gray-200 object-cover shadow-sm bg-gray-50" 
+                           />
+                           <button 
+                             onClick={() => updateSelectedNode('imageUrl', '')}
+                             className="text-xs text-red-500 hover:text-red-700 font-medium z-10"
+                           >
+                             Remover Foto
+                           </button>
+                        </div>
+                      ) : (
+                        <>
+                          <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                          <div className="flex text-sm text-gray-600 justify-center">
+                            <label
+                              htmlFor="file-upload"
+                              className="relative cursor-pointer bg-white rounded-md font-medium text-[#34cdd7] hover:text-[#1d3c55] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-[#34cdd7]"
+                            >
+                              <span>Faça upload de um arquivo</span>
+                              <input 
+                                id="file-upload" 
+                                name="file-upload" 
+                                type="file" 
+                                accept="image/*"
+                                className="sr-only" 
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => updateSelectedNode('imageUrl', reader.result as string);
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                          <p className="text-xs text-gray-500">ou arraste e solte</p>
+                          <p className="text-xs text-gray-500">PNG, JPG, GIF até 5MB</p>
+                        </>
+                      )}
+                      
+                      {/* Drag overlay input */}
+                      {!selectedNode.data.imageUrl && (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => updateSelectedNode('imageUrl', reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -322,6 +405,7 @@ function Flow() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeDragStop={onNodeDragStop}
           nodeTypes={nodeTypes}
           fitView
           minZoom={0.2}
