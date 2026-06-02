@@ -150,8 +150,8 @@ function Flow() {
     setTimeout(async () => {
       try {
         const dataUrl = format === 'png' 
-          ? await toPng(el, { backgroundColor: '#f9fafb' })
-          : await toJpeg(el, { backgroundColor: '#f9fafb', quality: 0.95 });
+          ? await toPng(el, { backgroundColor: 'transparent' })
+          : await toJpeg(el, { backgroundColor: '#f5f6fb', quality: 0.95 });
           
         const a = document.createElement('a');
         a.setAttribute('download', `org-chart.${format}`);
