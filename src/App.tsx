@@ -18,7 +18,7 @@ import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 import { toPng, toJpeg } from 'html-to-image';
 import jsPDF from 'jspdf';
-import { Download, Image as ImageIcon, FileText, Plus, Users, Trash2, LayoutTemplate } from 'lucide-react';
+import { Download, Image as ImageIcon, FileText, Plus, Users, Trash2, LayoutTemplate, Save, Upload } from 'lucide-react';
 
 import { MemberNode } from './components/MemberNode';
 import { getLayoutedElements } from './lib/layout';
@@ -231,6 +231,42 @@ function Flow() {
     }, 300);
   };
 
+  const exportProject = () => {
+    const data = JSON.stringify({ nodes, edges }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'org-chart-project.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importProject = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        if (data.nodes && data.edges) {
+          setNodes(data.nodes);
+          setEdges(data.edges);
+          setTimeout(() => fitView({ padding: 0.2 }), 50);
+        } else {
+          alert("Arquivo de projeto inválido.");
+        }
+      } catch (err) {
+        alert("Erro ao ler o arquivo de projeto.");
+      }
+    };
+    reader.readAsText(file);
+    // Reset the input so the same file can be loaded again if needed
+    event.target.value = '';
+  };
+
   return (
     <div className="w-full h-screen flex bg-[#f5f6fb] overflow-hidden font-sans">
       {/* Left Sidebar - Editing Controls */}
@@ -374,6 +410,24 @@ function Flow() {
             <LayoutTemplate size={18} />
             Organizar e Alinhar
           </button>
+          
+          <div className="pt-4 mt-2 border-t border-gray-200">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-1">Projeto</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={exportProject}
+                className="py-2 px-3 bg-white hover:bg-[#f5f6fb] border border-gray-200 text-[#1d3c55] text-sm font-medium rounded-md shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Save size={16} />
+                Salvar
+              </button>
+              <label className="py-2 px-3 bg-white hover:bg-[#f5f6fb] border border-gray-200 text-[#1d3c55] text-sm font-medium rounded-md shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                <Upload size={16} />
+                Carregar
+                <input type="file" accept=".json" className="hidden" onChange={importProject} />
+              </label>
+            </div>
+          </div>
           
           <div className="pt-4 mt-2 border-t border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-1">Exportar Organograma</p>
